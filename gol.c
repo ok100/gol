@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <curses.h>
 
-#define VERSION "0.1"
+#define VERSION "0.2"
 
 typedef struct cell {
 	bool is_alive;
