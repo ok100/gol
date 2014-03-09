@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <signal.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
@@ -17,6 +18,7 @@ typedef struct cell {
 Cell **world;
 size_t size_x, size_y;
 uint16_t rules = 0x80c;
+bool exit_flag = false;
 
 void bigbang(void)
 {
@@ -132,6 +134,12 @@ void parse_rules(char *str)
 		str[i] == '/' ? x = 1 : (rules |= 1 << (str[i] - '0' + (x ? 8 : 0)));
 }
 
+void handler(int signum)
+{
+	(void)signum;
+	exit_flag = true;
+}
+
 int main(int argc, char *argv[])
 {
 	int opt;
@@ -156,9 +164,14 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	signal(SIGINT, handler);
+	signal(SIGHUP, handler);
+
 	bigbang();
 
 	while(1) {
+		if(exit_flag)
+			break;
 		draw();
 		step();
 		usleep(speed * 1000000);
