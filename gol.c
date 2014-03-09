@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
@@ -8,13 +9,18 @@
 
 #define VERSION "0.1"
 
-uint8_t **world;
-uint16_t size_x, size_y;
+typedef struct cell {
+	bool is_alive;
+	uint8_t age;
+} Cell;
+
+Cell **world;
+size_t size_x, size_y;
 uint16_t rules = 0x80c;
 
 void bigbang(void)
 {
-	uint16_t i, j;
+	size_t i, j;
 
 	srand(time(NULL));
 
@@ -28,22 +34,26 @@ void bigbang(void)
 	if(has_colors()) {
 		start_color();
 		use_default_colors();
-		init_pair(1, rand() % 6 + 1, -1);
-		bkgd(COLOR_PAIR(1));
+		init_pair(1, -1, COLOR_RED);
+		init_pair(2, -1, COLOR_YELLOW);
+		init_pair(3, -1, COLOR_GREEN);
+		init_pair(4, -1, COLOR_CYAN);
+		init_pair(5, -1, COLOR_BLUE);
 	}
 
-	world = malloc(size_y * sizeof(uint8_t *));
+	world = malloc(size_y * sizeof(Cell *));
 	for(i = 0; i < size_y; i++) {
-		world[i] = malloc(2 * size_x * sizeof(uint8_t));
+		world[i] = malloc(2 * size_x * sizeof(Cell));
 		for(j = 0; j < size_x; j++) {
-			world[i][j] = rand() % 2;
+			world[i][j].is_alive = rand() % 2;
+			world[i][j].age = 1;
 		}
 	}
 }
 
 void apocalypse(void)
 {
-	uint16_t i;
+	size_t i;
 
 	for(i = 0; i < size_y; i++)
 		free(world[i]);
@@ -52,41 +62,62 @@ void apocalypse(void)
 	endwin();
 }
 
-uint8_t neighbours(uint16_t x, uint16_t y)
+uint8_t neighbours(size_t x, size_t y)
 {
-	uint8_t n = -world[x][y];
+	uint8_t n = -world[x][y].is_alive;
 	int16_t i, j;
 
-	for(i = x - 1; i <= x + 1; i++)
-		for(j = y - 1; j <= y + 1; j++)
-			if(i >= 0 && i < size_y && j >= 0 && j < size_x)
-				n += world[i][j];
+	for(i = (int)x - 1; i <= (int)x + 1; i++)
+		for(j = (int)y - 1; j <= (int)y + 1; j++)
+			if(i >= 0 && j >= 0 && i < (int)size_y && j < (int)size_x)
+				n += world[i][j].is_alive;
 	return n;
 }
 
 void step(void)
 {
-	uint16_t i, j;
+	size_t i, j;
 
 	for(i = 0; i < size_y; i++)
 		for(j = 0; j < size_x; j++)
-			if(rules & (1 << (neighbours(i, j) + (world[i][j] ? 0 : 8))))
-				world[i][j + size_x] = 1;
-			else
-				world[i][j + size_x] = 0;
+			if(rules & (1 << (neighbours(i, j) + (world[i][j].is_alive ? 0 : 8)))) {
+				if(!world[i][j + size_x].is_alive)
+					world[i][j + size_x].age = 0;
+				else if(world[i][j + size_x].age < 40)
+					world[i][j + size_x].age++;
+				world[i][j + size_x].is_alive = true;
+			} else
+				world[i][j + size_x].is_alive = false;
 
 	for(i = 0; i < size_y; i++)
-		for(j = size_x; j < 2 * size_x; j++)
-			world[i][j - size_x] = world[i][j];
+		for(j = size_x; j < 2 * size_x; j++) {
+			world[i][j - size_x].is_alive = world[i][j].is_alive;
+			world[i][j - size_x].age = world[i][j].age;
+		}
 }
 
 void draw(void)
 {
-	uint16_t i, j;
+	size_t i, j;
 
 	for(i = 0; i < size_y; i++)
-		for(j = 0; j < size_x; j++)
-			mvaddch(i, j, world[i][j] ? ' ' | A_REVERSE : ' ');
+		for(j = 0; j < size_x; j++) {
+			if(has_colors()) {
+				if(!world[i][j].is_alive)
+					attrset(COLOR_PAIR(0));
+				else if(world[i][j].age < 10)
+					attrset(COLOR_PAIR(1));
+				else if(world[i][j].age < 20)
+					attrset(COLOR_PAIR(2));
+				else if(world[i][j].age < 30)
+					attrset(COLOR_PAIR(3));
+				else if(world[i][j].age < 40)
+					attrset(COLOR_PAIR(4));
+				else
+					attrset(COLOR_PAIR(5));
+			}
+			mvaddch(i, j, ' ');
+		}
 	refresh();
 }
 
