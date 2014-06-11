@@ -169,9 +169,7 @@ int main(int argc, char *argv[])
 
 	bigbang();
 
-	while(1) {
-		if(exit_flag)
-			break;
+	while(!exit_flag) {
 		draw();
 		step();
 		usleep(speed * 1000000);
